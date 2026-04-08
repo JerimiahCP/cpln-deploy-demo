@@ -4,8 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment name (e.g. staging, prod, feature-auth)"
+        description: "Environment name — GVC will be created as stash-<environment>"
         required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
       location_1:
         description: "Primary location"
         required: true
