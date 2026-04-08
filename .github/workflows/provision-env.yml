@@ -10,10 +10,41 @@ on:
         description: "Primary location"
         required: true
         default: aws-us-east-1
+        type: choice
+        options:
+          - aws-us-east-1
+          - aws-us-east-2
+          - aws-us-west-2
+          - aws-eu-central-1
+          - aws-sa-east-1
+          - azure-eastus2
+          - azure-centralus
+          - gcp-us-east1
+          - gcp-us-central1
+          - gcp-us-west1
+          - gcp-me-west1
+          - oci-us-ashburn-1
+          - oci-il-jerusalem-1
       location_2:
         description: "Secondary location (leave blank for single-region)"
         required: false
         default: ""
+        type: choice
+        options:
+          - ""
+          - aws-us-east-1
+          - aws-us-east-2
+          - aws-us-west-2
+          - aws-eu-central-1
+          - aws-sa-east-1
+          - azure-eastus2
+          - azure-centralus
+          - gcp-us-east1
+          - gcp-us-central1
+          - gcp-us-west1
+          - gcp-me-west1
+          - oci-us-ashburn-1
+          - oci-il-jerusalem-1
 
 # Creates a new GVC + identity + workload for the given environment.
 # Run once per environment. Subsequent code changes use the Deploy workflow.
