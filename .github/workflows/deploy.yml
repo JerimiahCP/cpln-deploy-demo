@@ -1,0 +1,84 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cpln CLI
+        run: npm install -g @controlplane/cli
+
+      - name: Configure cpln profile
+        run: cpln profile create default --token "${{ secrets.CPLN_TOKEN }}" --org "${{ vars.CPLN_ORG }}"
+
+      - name: Log in to Control Plane registry
+        run: cpln image docker-login --org "${{ vars.CPLN_ORG }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: ${{ vars.CPLN_ORG }}.registry.cpln.io/stash:${{ github.sha }}
+          build-args: |
+            BUILD_VERSION=${{ github.sha }}
+            BUILD_TIME=${{ github.run_started_at }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      - name: Render CPLN manifests
+        env:
+          CPLN_ORG:          ${{ vars.CPLN_ORG }}
+          GVC_NAME:          ${{ vars.GVC_NAME }}
+          ENVIRONMENT:       ${{ vars.ENVIRONMENT }}
+          STORAGE_BACKEND:   ${{ vars.STORAGE_BACKEND }}
+          AWS_REGION:        ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET:     ${{ vars.AWS_S3_BUCKET }}
+          LOCATION_1:        ${{ vars.LOCATION_1 }}
+          AWS_CLOUD_ACCOUNT: ${{ vars.AWS_CLOUD_ACCOUNT }}
+          AWS_S3_POLICY:     ${{ vars.AWS_S3_POLICY }}
+          IMAGE_TAG:         ${{ vars.CPLN_ORG }}.registry.cpln.io/stash:${{ github.sha }}
+        run: |
+          mkdir -p cpln-rendered
+          envsubst < cpln/gvc.yaml      > cpln-rendered/gvc.yaml
+          envsubst < cpln/identity.yaml > cpln-rendered/identity.yaml
+          envsubst < cpln/workload.yaml > cpln-rendered/workload.yaml
+
+      - name: Apply to Control Plane
+        run: cpln apply -f cpln-rendered/ --org "${{ vars.CPLN_ORG }}"
+
+      - name: Wait for rollout
+        run: |
+          echo "Waiting for workload to become ready..."
+          for i in $(seq 1 24); do
+            READY=$(cpln workload get stash --gvc "${{ vars.GVC_NAME }}" --org "${{ vars.CPLN_ORG }}" -o json \
+              | jq -r '.status.readyReplicas // 0')
+            if [ "$READY" -ge 1 ]; then
+              echo "Ready ($READY replica)"
+              break
+            fi
+            echo "  attempt $i/24 — not ready yet..."
+            sleep 10
+          done
+
+      - name: Print endpoint
+        run: |
+          ENDPOINT=$(cpln workload get stash --gvc "${{ vars.GVC_NAME }}" --org "${{ vars.CPLN_ORG }}" -o json \
+            | jq -r '.status.endpoint // "pending"')
+          echo ""
+          echo "  version:  ${{ github.sha }}"
+          echo "  env:      ${{ vars.ENVIRONMENT }}"
+          echo "  endpoint: ${ENDPOINT}"

@@ -1,0 +1,79 @@
+name: Provision Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment name (e.g. staging, prod, feature-auth)
+        required: true
+      location_1:
+        description: Primary location
+        required: true
+        default: aws-us-east-1
+      location_2:
+        description: Secondary location (leave blank for single-region)
+        required: false
+        default: gcp-us-east1
+
+# Creates a new GVC + identity + workload for the given environment.
+# Run this once per environment; subsequent deploys use the deploy workflow.
+
+jobs:
+  provision:
+    name: Provision ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set variables
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          echo "ENVIRONMENT=${ENV}"          >> "$GITHUB_ENV"
+          echo "GVC_NAME=shipfast-${ENV}"    >> "$GITHUB_ENV"
+          echo "LOCATION_1=${{ github.event.inputs.location_1 }}" >> "$GITHUB_ENV"
+          echo "LOCATION_2=${{ github.event.inputs.location_2 }}" >> "$GITHUB_ENV"
+          # Use the latest image tag for the environment (will be updated on next deploy)
+          echo "IMAGE_TAG=${{ secrets.DOCKER_USERNAME }}/shipfast:${ENV}-latest" >> "$GITHUB_ENV"
+          echo "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Install cpln CLI
+        run: npm install -g @controlplane/cli
+
+      - name: Configure cpln profile
+        run: cpln profile create default --token "${{ secrets.CPLN_TOKEN }}" --org "${{ secrets.CPLN_ORG }}"
+
+      - name: Render CPLN manifests
+        env:
+          CPLN_ORG:           ${{ secrets.CPLN_ORG }}
+          CPLN_CLOUD_ACCOUNT: ${{ secrets.CPLN_CLOUD_ACCOUNT }}
+          AWS_S3_POLICY_ARN:  ${{ secrets.AWS_S3_POLICY_ARN }}
+          AWS_S3_BUCKET:      ${{ secrets.AWS_S3_BUCKET }}
+          AWS_REGION:         ${{ secrets.AWS_REGION || 'us-east-1' }}
+          IMAGE_TAG:          ${{ env.IMAGE_TAG }}
+        run: |
+          mkdir -p cpln-rendered
+          envsubst < cpln/gvc.yaml      > cpln-rendered/gvc.yaml
+          envsubst < cpln/identity.yaml > cpln-rendered/identity.yaml
+          envsubst < cpln/workload.yaml > cpln-rendered/workload.yaml
+
+          # If no secondary location, remove it from the GVC spec
+          if [ -z "$LOCATION_2" ]; then
+            sed -i '/LOCATION_2/d' cpln-rendered/gvc.yaml
+          fi
+
+          echo "--- GVC ---"
+          cat cpln-rendered/gvc.yaml
+
+      - name: Apply to Control Plane
+        run: cpln apply -f cpln-rendered/ --org "${{ secrets.CPLN_ORG }}"
+
+      - name: Summary
+        run: |
+          echo "Environment provisioned:"
+          echo "  GVC:       $GVC_NAME"
+          echo "  Org:       ${{ secrets.CPLN_ORG }}"
+          echo "  Locations: $LOCATION_1 $LOCATION_2"
+          echo ""
+          echo "Next step: run the Deploy workflow targeting '${ENVIRONMENT}' to ship code."

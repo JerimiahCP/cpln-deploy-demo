@@ -1,0 +1,47 @@
+kind: workload
+name: stash
+gvc: ${GVC_NAME}
+spec:
+  type: standard
+  identityLink: //gvc/${GVC_NAME}/identity/stash-identity
+  containers:
+    - name: stash
+      image: ${IMAGE_TAG}
+      ports:
+        - number: 8080
+          protocol: http
+      env:
+        - name: PORT
+          value: "8080"
+        - name: ENVIRONMENT
+          value: "${ENVIRONMENT}"
+        - name: STORAGE_BACKEND
+          value: "${STORAGE_BACKEND}"
+        - name: AWS_REGION
+          value: "${AWS_REGION}"
+        - name: AWS_S3_BUCKET
+          value: "${AWS_S3_BUCKET}"
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        failureThreshold: 2
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        initialDelaySeconds: 10
+        periodSeconds: 20
+  defaultOptions:
+    autoscaling:
+      metric: rps
+      minScale: 1
+      maxScale: 5
+  firewallConfig:
+    external:
+      inboundAllowCIDR:
+        - 0.0.0.0/0
+      outboundAllowHostname:
+        - "*.amazonaws.com"

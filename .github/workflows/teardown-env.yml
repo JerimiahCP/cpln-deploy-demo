@@ -1,0 +1,51 @@
+name: Teardown Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to delete (e.g. staging, feature-auth)
+        required: true
+      confirm:
+        description: Type the environment name again to confirm deletion
+        required: true
+
+jobs:
+  teardown:
+    name: Teardown ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.environment }}" != "${{ github.event.inputs.confirm }}" ]; then
+            echo "Confirmation does not match. Aborting."
+            exit 1
+          fi
+
+      - name: Install cpln CLI
+        run: npm install -g @controlplane/cli
+
+      - name: Configure cpln profile
+        run: cpln profile create default --token "${{ secrets.CPLN_TOKEN }}" --org "${{ secrets.CPLN_ORG }}"
+
+      - name: Delete workload and identity
+        env:
+          GVC_NAME: shipfast-${{ github.event.inputs.environment }}
+        run: |
+          cpln workload delete shipfast \
+            --gvc "$GVC_NAME" --org "${{ secrets.CPLN_ORG }}" || true
+
+          cpln identity delete shipfast-identity \
+            --gvc "$GVC_NAME" --org "${{ secrets.CPLN_ORG }}" || true
+
+      - name: Delete GVC
+        env:
+          GVC_NAME: shipfast-${{ github.event.inputs.environment }}
+        run: |
+          cpln gvc delete "$GVC_NAME" --org "${{ secrets.CPLN_ORG }}" || true
+
+      - name: Summary
+        run: |
+          echo "Deleted environment: ${{ github.event.inputs.environment }}"
+          echo "GVC shipfast-${{ github.event.inputs.environment }} and all resources removed."

@@ -1,0 +1,7 @@
+kind: identity
+name: stash-identity
+gvc: ${GVC_NAME}
+aws:
+  cloudAccountLink: /org/${CPLN_ORG}/cloudaccount/${AWS_CLOUD_ACCOUNT}
+  policyRefs:
+    - "${AWS_S3_POLICY}"

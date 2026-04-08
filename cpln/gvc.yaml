@@ -1,0 +1,7 @@
+kind: gvc
+name: ${GVC_NAME}
+spec:
+  staticPlacement:
+    locationLinks:
+      - //location/${LOCATION_1}
+  pullSecretLinks: []
