@@ -44,8 +44,6 @@ jobs:
           CPLN_ORG:          ${{ vars.CPLN_ORG }}
           GVC_NAME:          ${{ vars.GVC_NAME }}
           ENVIRONMENT:       ${{ vars.ENVIRONMENT }}
-          LOCATION_1:        ${{ vars.LOCATION_1 }}
-          LOCATION_2:        ${{ vars.LOCATION_2 }}
           STORAGE_BACKEND:   ${{ vars.STORAGE_BACKEND }}
           AWS_REGION:        ${{ vars.AWS_REGION }}
           AWS_S3_BUCKET:     ${{ vars.AWS_S3_BUCKET }}
@@ -54,12 +52,8 @@ jobs:
           IMAGE_TAG:         ${{ vars.CPLN_ORG }}.registry.cpln.io/stash:${{ github.sha }}
         run: |
           mkdir -p cpln-rendered
-          envsubst < cpln/gvc.yaml      > cpln-rendered/gvc.yaml
           envsubst < cpln/identity.yaml > cpln-rendered/identity.yaml
           envsubst < cpln/workload.yaml > cpln-rendered/workload.yaml
-
-          # Remove the second location line if LOCATION_2 is not set
-          sed -i '/\/\/location\/$/d' cpln-rendered/gvc.yaml
 
       - name: Apply to Control Plane
         run: cpln apply -f cpln-rendered/ --org "${{ vars.CPLN_ORG }}"
