@@ -53,9 +53,7 @@ jobs:
         run: |
           GVC_NAME="stash-${{ github.event.inputs.environment }}"
           for i in $(seq 1 12); do
-            EXISTS=$(cpln gvc get "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" -o json 2>&1 \
-              | jq -r '.name // empty')
-            if [ -z "$EXISTS" ]; then
+            if ! cpln gvc get "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" > /dev/null 2>&1; then
               echo "GVC $GVC_NAME confirmed deleted"
               exit 0
             fi
