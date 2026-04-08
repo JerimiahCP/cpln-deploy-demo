@@ -27,7 +27,8 @@ Go to your repo → **Settings → Secrets and variables → Actions**
 | `CPLN_ORG` | Your Control Plane org name | `cpln-customer-demos` |
 | `GVC_NAME` | The Global Virtual Cloud to deploy into | `stash-demo` |
 | `ENVIRONMENT` | Label for this deployment — used as the S3 path prefix | `production` |
-| `LOCATION_1` | Control Plane location to run in | `aws-us-east-1` |
+| `LOCATION_1` | Primary Control Plane location | `aws-us-east-1` |
+| `LOCATION_2` | Secondary location for multi-region (leave empty for single-region) | `gcp-us-east1` |
 | `STORAGE_BACKEND` | Storage driver: `local` or `s3` | `s3` |
 | `AWS_REGION` | AWS region your S3 bucket is in | `us-east-1` |
 | `AWS_S3_BUCKET` | S3 bucket name — ask your platform team | `cpln-customer-demos` |

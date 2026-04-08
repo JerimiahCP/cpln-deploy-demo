@@ -4,4 +4,5 @@ spec:
   staticPlacement:
     locationLinks:
       - //location/${LOCATION_1}
+      - //location/${LOCATION_2}
   pullSecretLinks: []

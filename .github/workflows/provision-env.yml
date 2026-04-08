@@ -6,10 +6,14 @@ on:
       environment:
         description: "Environment name (e.g. staging, prod, feature-auth)"
         required: true
-      location:
-        description: "Control Plane location"
+      location_1:
+        description: "Primary location"
         required: true
         default: aws-us-east-1
+      location_2:
+        description: "Secondary location (leave blank for single-region)"
+        required: false
+        default: ""
 
 # Creates a new GVC + identity + workload for the given environment.
 # Run once per environment. Subsequent code changes use the Deploy workflow.
@@ -53,7 +57,8 @@ jobs:
           CPLN_ORG:          ${{ vars.CPLN_ORG }}
           GVC_NAME:          stash-${{ github.event.inputs.environment }}
           ENVIRONMENT:       ${{ github.event.inputs.environment }}
-          LOCATION_1:        ${{ github.event.inputs.location }}
+          LOCATION_1:        ${{ github.event.inputs.location_1 }}
+          LOCATION_2:        ${{ github.event.inputs.location_2 }}
           STORAGE_BACKEND:   ${{ vars.STORAGE_BACKEND }}
           AWS_REGION:        ${{ vars.AWS_REGION }}
           AWS_S3_BUCKET:     ${{ vars.AWS_S3_BUCKET }}
@@ -65,6 +70,9 @@ jobs:
           envsubst < cpln/gvc.yaml      > cpln-rendered/gvc.yaml
           envsubst < cpln/identity.yaml > cpln-rendered/identity.yaml
           envsubst < cpln/workload.yaml > cpln-rendered/workload.yaml
+
+          # Remove the second location line if LOCATION_2 was left blank
+          sed -i '/\/\/location\/$/d' cpln-rendered/gvc.yaml
 
           echo "--- Rendered GVC ---"
           cat cpln-rendered/gvc.yaml
