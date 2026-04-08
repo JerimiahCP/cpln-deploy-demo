@@ -4,10 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: Environment to delete (e.g. staging, feature-auth)
+        description: "Environment to delete"
         required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
       confirm:
-        description: Type the environment name again to confirm deletion
+        description: "Type the environment name again to confirm deletion"
         required: true
 
 jobs:
@@ -27,25 +32,24 @@ jobs:
         run: npm install -g @controlplane/cli
 
       - name: Configure cpln profile
-        run: cpln profile create default --token "${{ secrets.CPLN_TOKEN }}" --org "${{ secrets.CPLN_ORG }}"
+        run: cpln profile create default --token "${{ secrets.CPLN_TOKEN }}" --org "${{ vars.CPLN_ORG }}"
 
       - name: Delete workload and identity
-        env:
-          GVC_NAME: shipfast-${{ github.event.inputs.environment }}
         run: |
-          cpln workload delete shipfast \
-            --gvc "$GVC_NAME" --org "${{ secrets.CPLN_ORG }}" || true
+          GVC_NAME="stash-${{ github.event.inputs.environment }}"
 
-          cpln identity delete shipfast-identity \
-            --gvc "$GVC_NAME" --org "${{ secrets.CPLN_ORG }}" || true
+          cpln workload delete stash \
+            --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" || true
+
+          cpln identity delete stash-identity \
+            --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" || true
 
       - name: Delete GVC
-        env:
-          GVC_NAME: shipfast-${{ github.event.inputs.environment }}
         run: |
-          cpln gvc delete "$GVC_NAME" --org "${{ secrets.CPLN_ORG }}" || true
+          cpln gvc delete "stash-${{ github.event.inputs.environment }}" \
+            --org "${{ vars.CPLN_ORG }}" || true
 
       - name: Summary
         run: |
           echo "Deleted environment: ${{ github.event.inputs.environment }}"
-          echo "GVC shipfast-${{ github.event.inputs.environment }} and all resources removed."
+          echo "GVC stash-${{ github.event.inputs.environment }} and all resources removed."
