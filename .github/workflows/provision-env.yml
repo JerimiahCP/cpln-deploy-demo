@@ -75,7 +75,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.10.0
 
-      - name: Build and push image
+      - name: Build and push stash image
         uses: docker/build-push-action@v6.16.0
         with:
           context: .
@@ -85,27 +85,41 @@ jobs:
           build-args: |
             BUILD_VERSION=${{ github.sha }}
             BUILD_TIME=${{ github.run_started_at }}
-          cache-from: type=gha
-          cache-to:   type=gha,mode=max
+          cache-from: type=gha,scope=stash
+          cache-to:   type=gha,mode=max,scope=stash
+
+      - name: Build and push analyzer image
+        uses: docker/build-push-action@v6.16.0
+        with:
+          context: services/analyzer
+          push: true
+          platforms: linux/amd64
+          tags: ${{ vars.CPLN_ORG }}.registry.cpln.io/stash-analyzer:${{ github.sha }}
+          cache-from: type=gha,scope=analyzer
+          cache-to:   type=gha,mode=max,scope=analyzer
 
       - name: Render CPLN manifests
         env:
-          CPLN_ORG:          ${{ vars.CPLN_ORG }}
-          GVC_NAME:          stash-${{ github.event.inputs.environment }}
-          ENVIRONMENT:       ${{ github.event.inputs.environment }}
-          LOCATION_1:        ${{ github.event.inputs.location_1 }}
-          LOCATION_2:        ${{ github.event.inputs.location_2 }}
-          STORAGE_BACKEND:   ${{ vars.STORAGE_BACKEND }}
-          AWS_REGION:        ${{ vars.AWS_REGION }}
-          AWS_S3_BUCKET:     ${{ vars.AWS_S3_BUCKET }}
-          AWS_CLOUD_ACCOUNT: ${{ vars.AWS_CLOUD_ACCOUNT }}
-          AWS_S3_POLICY:     ${{ vars.AWS_S3_POLICY }}
-          IMAGE_TAG:         ${{ vars.CPLN_ORG }}.registry.cpln.io/stash:${{ github.sha }}
+          CPLN_ORG:             ${{ vars.CPLN_ORG }}
+          GVC_NAME:             stash-${{ github.event.inputs.environment }}
+          ENVIRONMENT:          ${{ github.event.inputs.environment }}
+          LOCATION_1:           ${{ github.event.inputs.location_1 }}
+          LOCATION_2:           ${{ github.event.inputs.location_2 }}
+          STORAGE_BACKEND:      ${{ vars.STORAGE_BACKEND }}
+          AWS_REGION:           ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET:        ${{ vars.AWS_S3_BUCKET }}
+          AWS_CLOUD_ACCOUNT:    ${{ vars.AWS_CLOUD_ACCOUNT }}
+          AWS_S3_POLICY:        ${{ vars.AWS_S3_POLICY }}
+          ANALYZER_URL:         ${{ vars.ANALYZER_URL }}
+          IMAGE_TAG:            ${{ vars.CPLN_ORG }}.registry.cpln.io/stash:${{ github.sha }}
+          ANALYZER_IMAGE_TAG:   ${{ vars.CPLN_ORG }}.registry.cpln.io/stash-analyzer:${{ github.sha }}
         run: |
           mkdir -p cpln-rendered
-          envsubst < cpln/gvc.yaml      > cpln-rendered/gvc.yaml
-          envsubst < cpln/identity.yaml > cpln-rendered/identity.yaml
-          envsubst < cpln/workload.yaml > cpln-rendered/workload.yaml
+          envsubst < cpln/gvc.yaml               > cpln-rendered/gvc.yaml
+          envsubst < cpln/identity.yaml          > cpln-rendered/identity.yaml
+          envsubst < cpln/workload.yaml          > cpln-rendered/workload.yaml
+          envsubst < cpln/analyzer-identity.yaml > cpln-rendered/analyzer-identity.yaml
+          envsubst < cpln/analyzer-workload.yaml > cpln-rendered/analyzer-workload.yaml
 
           # Remove the second location line if LOCATION_2 was left blank
           sed -i '/\/\/location\/$/d' cpln-rendered/gvc.yaml

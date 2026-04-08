@@ -34,14 +34,20 @@ jobs:
       - name: Configure cpln profile
         run: cpln profile create default --token "${{ secrets.CPLN_TOKEN }}" --org "${{ vars.CPLN_ORG }}"
 
-      - name: Delete workload and identity
+      - name: Delete workloads and identities
         run: |
           GVC_NAME="stash-${{ github.event.inputs.environment }}"
 
           cpln workload delete stash \
             --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" || true
 
+          cpln workload delete analyzer \
+            --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" || true
+
           cpln identity delete stash-identity \
+            --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" || true
+
+          cpln identity delete analyzer-identity \
             --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" || true
 
       - name: Delete GVC

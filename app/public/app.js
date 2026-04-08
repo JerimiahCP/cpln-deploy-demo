@@ -355,8 +355,88 @@ async function noteView(id) {
 // ── File view ─────────────────────────────────────────────────────────────────
 
 async function fileView(id, filename) {
-  // The download endpoint streams directly — just redirect
-  window.location.href = `/api/files/${id}/${filename}`;
+  const decodedName = decodeURIComponent(filename);
+  app.innerHTML = `<div class="container page"><p class="text-muted">Loading…</p></div>`;
+
+  let insights = null;
+  try {
+    const r = await fetch(`/api/files/${id}/${filename}/insights`);
+    if (r.ok) insights = await r.json();
+  } catch (_) { /* analyzer may not be running */ }
+
+  const downloadUrl = `/api/files/${id}/${filename}`;
+  const deleteId    = `${id}/${filename}`;
+
+  app.innerHTML = `
+    <div class="container page">
+      <a class="back-link" href="/">← New stash</a>
+      <h2 class="file-view-name">${escapeHtml(decodedName)}</h2>
+      ${insights ? renderInsights(insights) : ''}
+      <div class="file-actions">
+        <a href="${downloadUrl}" download="${escapeHtml(decodedName)}">
+          <button class="btn-primary">Download</button>
+        </a>
+        <button class="btn-ghost" onclick="copyText(window.location.href)">Copy link</button>
+        <button class="btn-danger" onclick="deleteItem('file','${deleteId}');history.pushState(null,'','/');router()">Delete</button>
+      </div>
+      ${renderInfoBar()}
+    </div>`;
+}
+
+function renderInsights(data) {
+  if (!data || !data.fileType) return '';
+  const d = data.details || {};
+  let rows = [];
+
+  if (data.fileType === 'text/csv') {
+    rows = [
+      ['Rows', d.rows?.toLocaleString()],
+      ['Columns', d.columns],
+      ['Headers', d.headers?.slice(0, 6).join(', ') + (d.headers?.length > 6 ? ', …' : '')],
+    ];
+    if (d.numericColumns) {
+      const cols = Object.keys(d.numericColumns);
+      if (cols.length) rows.push(['Numeric columns', cols.join(', ')]);
+    }
+  } else if (data.fileType === 'application/json') {
+    rows = [
+      ['Structure', d.rootType],
+      d.rootType === 'array'
+        ? ['Items', d.arrayLength?.toLocaleString()]
+        : ['Top-level keys', d.topLevelKeys],
+      ['Max depth', d.maxDepth],
+    ];
+  } else if (data.fileType && data.fileType.startsWith('image/')) {
+    rows = [
+      ['Format', d.format],
+      ['Dimensions', `${d.width} × ${d.height} px`],
+    ];
+  } else if (data.fileType === 'text/plain') {
+    if (d.language) rows.push(['Language', d.language]);
+    rows.push(['Lines', d.lines?.toLocaleString()]);
+    rows.push(['Words', d.words?.toLocaleString()]);
+    rows.push(['Characters', d.chars?.toLocaleString()]);
+  } else {
+    rows = [
+      ['Type', d.magic],
+      ['Entropy', d.entropy != null ? d.entropy.toFixed(2) + ' bits/byte' : '—'],
+    ];
+  }
+
+  return `
+    <div class="insights-panel">
+      <div class="insights-header">
+        <span class="insights-svc">Analyzed by <strong>analyzer</strong></span>
+        <span class="insights-type">${escapeHtml(data.fileType)}</span>
+      </div>
+      <div class="insights-grid">
+        ${rows.filter(r => r && r[1] != null).map(([k, v]) => `
+          <div class="insights-row">
+            <span class="insights-key">${escapeHtml(String(k))}</span>
+            <span class="insights-val">${escapeHtml(String(v))}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
 }
 
 // ── HTML escape ──────────────────────────────────────────────────────────────

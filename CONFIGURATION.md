@@ -32,7 +32,8 @@ Go to your repo → **Settings → Secrets and variables → Actions**
 | `AWS_REGION` | AWS region your S3 bucket is in | `us-east-1` |
 | `AWS_S3_BUCKET` | S3 bucket name — ask your platform team | `cpln-customer-demos` |
 | `AWS_CLOUD_ACCOUNT` | Control Plane cloud account resource name | `aws` |
-| `AWS_S3_POLICY` | AWS managed policy granting S3 access | `aws::AmazonS3FullAccess` |
+| `AWS_S3_POLICY` | AWS managed policy granting S3 access to the **stash** workload | `aws::AmazonS3FullAccess` |
+| `ANALYZER_URL` | Internal URL of the analyzer service — CPLN routes by workload name within the GVC | `http://analyzer` |
 
 ---
 

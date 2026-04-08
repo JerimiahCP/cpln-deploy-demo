@@ -21,6 +21,8 @@ spec:
           value: "${AWS_REGION}"
         - name: AWS_S3_BUCKET
           value: "${AWS_S3_BUCKET}"
+        - name: ANALYZER_URL
+          value: "${ANALYZER_URL}"
       readinessProbe:
         httpGet:
           path: /health

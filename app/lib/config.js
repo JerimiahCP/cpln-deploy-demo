@@ -38,4 +38,5 @@ module.exports = {
   upload: {
     maxBytes: parseInt(process.env.MAX_UPLOAD_MB || '25', 10) * 1024 * 1024,
   },
+  analyzerUrl: process.env.ANALYZER_URL || null,
 };
