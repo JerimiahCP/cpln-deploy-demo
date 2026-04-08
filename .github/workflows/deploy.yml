@@ -28,8 +28,8 @@ jobs:
           # Push to main always goes to staging.
           # Manual dispatch can target staging or prod.
           ENV="${{ github.event.inputs.environment || 'staging' }}"
-          echo "TARGET_ENV=${ENV}"              >> "$GITHUB_ENV"
-          echo "GVC_NAME=stash-${ENV}"          >> "$GITHUB_ENV"
+          echo "TARGET_ENV=${ENV}"     >> "$GITHUB_ENV"
+          echo "GVC_NAME=stash-${ENV}" >> "$GITHUB_ENV"
 
       - name: Install cpln CLI
         run: npm install -g @controlplane/cli
@@ -43,7 +43,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.10.0
 
-      - name: Build and push stash image
+      - name: Build and push image
         uses: docker/build-push-action@v6.16.0
         with:
           context: .
@@ -53,45 +53,32 @@ jobs:
           build-args: |
             BUILD_VERSION=${{ github.sha }}
             BUILD_TIME=${{ github.run_started_at }}
-          cache-from: type=gha,scope=stash
-          cache-to:   type=gha,mode=max,scope=stash
-
-      - name: Build and push analyzer image
-        uses: docker/build-push-action@v6.16.0
-        with:
-          context: services/analyzer
-          push: true
-          platforms: linux/amd64
-          tags: ${{ vars.CPLN_ORG }}.registry.cpln.io/stash-analyzer:${{ github.sha }}
-          cache-from: type=gha,scope=analyzer
-          cache-to:   type=gha,mode=max,scope=analyzer
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
 
       - name: Render CPLN manifests
         env:
-          CPLN_ORG:             ${{ vars.CPLN_ORG }}
-          GVC_NAME:             ${{ env.GVC_NAME }}
-          ENVIRONMENT:          ${{ env.TARGET_ENV }}
-          STORAGE_BACKEND:      ${{ vars.STORAGE_BACKEND }}
-          AWS_REGION:           ${{ vars.AWS_REGION }}
-          AWS_S3_BUCKET:        ${{ vars.AWS_S3_BUCKET }}
-          AWS_CLOUD_ACCOUNT:    ${{ vars.AWS_CLOUD_ACCOUNT }}
-          AWS_S3_POLICY:        ${{ vars.AWS_S3_POLICY }}
-          ANALYZER_URL:         ${{ vars.ANALYZER_URL }}
-          IMAGE_TAG:            ${{ vars.CPLN_ORG }}.registry.cpln.io/stash:${{ github.sha }}
-          ANALYZER_IMAGE_TAG:   ${{ vars.CPLN_ORG }}.registry.cpln.io/stash-analyzer:${{ github.sha }}
+          CPLN_ORG:          ${{ vars.CPLN_ORG }}
+          GVC_NAME:          ${{ env.GVC_NAME }}
+          ENVIRONMENT:       ${{ env.TARGET_ENV }}
+          STORAGE_BACKEND:   ${{ vars.STORAGE_BACKEND }}
+          AWS_REGION:        ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET:     ${{ vars.AWS_S3_BUCKET }}
+          AWS_CLOUD_ACCOUNT: ${{ vars.AWS_CLOUD_ACCOUNT }}
+          AWS_S3_POLICY:     ${{ vars.AWS_S3_POLICY }}
+          ANALYZER_URL:      ${{ vars.ANALYZER_URL }}
+          IMAGE_TAG:         ${{ vars.CPLN_ORG }}.registry.cpln.io/stash:${{ github.sha }}
         run: |
           mkdir -p cpln-rendered
-          envsubst < cpln/identity.yaml          > cpln-rendered/identity.yaml
-          envsubst < cpln/workload.yaml          > cpln-rendered/workload.yaml
-          envsubst < cpln/analyzer-identity.yaml > cpln-rendered/analyzer-identity.yaml
-          envsubst < cpln/analyzer-workload.yaml > cpln-rendered/analyzer-workload.yaml
+          envsubst < cpln/identity.yaml > cpln-rendered/identity.yaml
+          envsubst < cpln/workload.yaml > cpln-rendered/workload.yaml
 
       - name: Apply to Control Plane
         run: cpln apply -f cpln-rendered/ --org "${{ vars.CPLN_ORG }}"
 
       - name: Wait for rollout
         run: |
-          echo "Waiting for stash workload to become ready..."
+          echo "Waiting for workload to become ready..."
           for i in $(seq 1 24); do
             READY=$(cpln workload get stash --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" -o json \
               | jq -r '.status.readyReplicas // 0')
@@ -103,13 +90,12 @@ jobs:
             sleep 10
           done
 
-      - name: Print endpoints
+      - name: Print endpoint
         run: |
           ENDPOINT=$(cpln workload get stash --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" -o json \
             | jq -r '.status.endpoint // "pending"')
           echo ""
-          echo "  version:          ${{ github.sha }}"
-          echo "  environment:      $TARGET_ENV"
-          echo "  gvc:              $GVC_NAME"
-          echo "  stash endpoint:   ${ENDPOINT}"
-          echo "  analyzer:         internal only (same-gvc)"
+          echo "  version:     ${{ github.sha }}"
+          echo "  environment: $TARGET_ENV"
+          echo "  gvc:         $GVC_NAME"
+          echo "  endpoint:    ${ENDPOINT}"

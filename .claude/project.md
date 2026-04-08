@@ -30,7 +30,7 @@ The app itself is deliberately simple. The point is the platform story:
 
 ## App architecture
 
-**Stack:** Node.js 20 (main app), Go 1.22 (analyzer), Express, AWS SDK v3/v2
+**Stack:** Node.js 20, Express, AWS SDK v3
 
 **Key files:**
 ```
@@ -46,20 +46,20 @@ app/
     files.js             — GET(list)/POST/GET/DELETE /api/files + GET insights sidecar
     info.js              — GET /api/info — runtime context
     health.js            — GET /health, /healthz
-services/
-  analyzer/
-    main.go              — Go HTTP server: POST /analyze (reads S3, returns insights)
-    go.mod               — Module: github.com/JerimiahCP/cpln-deploy-demo/services/analyzer
-    Dockerfile           — Multi-stage: golang:1.22-alpine → alpine:3.19
 cpln/
   gvc.yaml               — GVC template (locations set at provision time)
   identity.yaml          — stash-identity: AWS cloud account + S3 full access
   workload.yaml          — stash workload template
-  analyzer-identity.yaml — analyzer-identity: AWS cloud account + S3 read-only access
-  analyzer-workload.yaml — analyzer workload template (internal-only, no public inbound)
 CONFIGURATION.md         — Single source of truth for what each env var means
 .env.example             — Local dev template mirroring GitHub variables
 ```
+
+**Analyzer microservice lives in its own repo:**
+`https://github.com/JerimiahCP/cpln-deploy-demo-analyzer`
+- Go 1.22, standalone Docker image: `cpln-customer-demos.registry.cpln.io/stash-analyzer`
+- Own deploy workflow (push to main → stash-staging; manual dispatch for other envs)
+- Own identity (`analyzer-identity`) with S3 read-only access
+- Internal-only workload: no public inbound, reachable only from same-GVC workloads
 
 **Storage abstraction:**
 - `STORAGE_BACKEND=local` → writes to `DATA_DIR` on container filesystem
@@ -175,17 +175,15 @@ and sets defaults — no inline docs.
 - Staging (`stash-staging`): Browse tab, no analyzer yet
 
 **In progress / known issues:**
-- `analyzer` service written but not yet deployed — needs a push to main or manual dispatch
+- Analyzer service not yet deployed to staging or prod — push to main on cpln-deploy-demo-analyzer repo when ready
 
 **Recent changes:**
-- Added `analyzer` Go microservice (`services/analyzer/`) — reads files from S3 using its own read-only identity, returns structured insights per file type (CSV, JSON, image, text, binary)
-- Added `analyzer-identity` with `aws::AmazonS3ReadOnlyAccess` (separate from stash-identity which has FullAccess — demonstrates least-privilege)
-- Added `analyzer-workload` — internal-only (no public inbound), accessible only from same-GVC workloads
-- File view page now shows insights panel ("Analyzed by analyzer") before the download button
+- Split analyzer into its own repo (JerimiahCP/cpln-deploy-demo-analyzer) — independent CI/CD, own image, own identity
+- Removed analyzer from main repo's build/provision/teardown workflows — each service deploys independently
+- GVC teardown now relies on cascade deletion for analyzer resources (deleting GVC removes everything in it)
+- File view page shows insights panel ("Analyzed by analyzer") before the download button
 - Insights stored as sidecar `_insights.json` in S3 alongside each uploaded file
-- Updated deploy, provision-env, and teardown-env workflows to handle both services
 - Added `ANALYZER_URL` GitHub variable (set to `http://analyzer` for internal CPLN routing)
-- Fixed teardown-env.yml: stash naming, vars.CPLN_ORG, environment dropdown
 - Added Browse tab (file listing) to app and API
 - Fixed deploy workflow: push to main now targets staging, not production
 - Added LOCATION_2 support to provision-env workflow with dropdown inputs
