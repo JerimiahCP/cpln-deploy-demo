@@ -4,15 +4,32 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - prod
 
 jobs:
   deploy:
-    name: Build & Deploy
+    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.2
+
+      - name: Resolve target environment
+        run: |
+          # Push to main always goes to staging.
+          # Manual dispatch can target staging or prod.
+          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          echo "TARGET_ENV=${ENV}"              >> "$GITHUB_ENV"
+          echo "GVC_NAME=stash-${ENV}"          >> "$GITHUB_ENV"
 
       - name: Install cpln CLI
         run: npm install -g @controlplane/cli
@@ -42,8 +59,8 @@ jobs:
       - name: Render CPLN manifests
         env:
           CPLN_ORG:          ${{ vars.CPLN_ORG }}
-          GVC_NAME:          ${{ vars.GVC_NAME }}
-          ENVIRONMENT:       ${{ vars.ENVIRONMENT }}
+          GVC_NAME:          ${{ env.GVC_NAME }}
+          ENVIRONMENT:       ${{ env.TARGET_ENV }}
           STORAGE_BACKEND:   ${{ vars.STORAGE_BACKEND }}
           AWS_REGION:        ${{ vars.AWS_REGION }}
           AWS_S3_BUCKET:     ${{ vars.AWS_S3_BUCKET }}
@@ -62,7 +79,7 @@ jobs:
         run: |
           echo "Waiting for workload to become ready..."
           for i in $(seq 1 24); do
-            READY=$(cpln workload get stash --gvc "${{ vars.GVC_NAME }}" --org "${{ vars.CPLN_ORG }}" -o json \
+            READY=$(cpln workload get stash --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" -o json \
               | jq -r '.status.readyReplicas // 0')
             if [ "$READY" -ge 1 ]; then
               echo "Ready ($READY replica)"
@@ -74,9 +91,10 @@ jobs:
 
       - name: Print endpoint
         run: |
-          ENDPOINT=$(cpln workload get stash --gvc "${{ vars.GVC_NAME }}" --org "${{ vars.CPLN_ORG }}" -o json \
+          ENDPOINT=$(cpln workload get stash --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" -o json \
             | jq -r '.status.endpoint // "pending"')
           echo ""
-          echo "  version:  ${{ github.sha }}"
-          echo "  env:      ${{ vars.ENVIRONMENT }}"
-          echo "  endpoint: ${ENDPOINT}"
+          echo "  version:     ${{ github.sha }}"
+          echo "  environment: $TARGET_ENV"
+          echo "  gvc:         $GVC_NAME"
+          echo "  endpoint:    ${ENDPOINT}"
