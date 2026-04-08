@@ -3,4 +3,4 @@ cpln-rendered/
 data/
 .env
 *.local
-.claude/
+.claude/settings.local.json
