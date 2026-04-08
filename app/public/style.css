@@ -200,3 +200,13 @@ textarea { min-height: 220px; }
   .page-title { font-size: 22px; }
   .info-bar { gap: 12px; }
 }
+
+/* ── Browse table ── */
+.browse-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 4px; }
+.browse-table th { text-align: left; color: var(--subtle); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 12px 10px 0; border-bottom: 1px solid var(--border); }
+.browse-table td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.browse-table tr:last-child td { border-bottom: none; }
+.browse-table td:last-child { text-align: right; white-space: nowrap; display: flex; gap: 6px; justify-content: flex-end; }
+.file-link { color: var(--blue); text-decoration: none; word-break: break-all; }
+.file-link:hover { text-decoration: underline; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }

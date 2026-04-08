@@ -10,6 +10,30 @@ function fileKey(id, filename) {
   return `${config.environment}/files/${id}/${filename}`;
 }
 
+// GET /api/files — list all files for this environment
+router.get('/', async (req, res, next) => {
+  try {
+    const prefix = `${config.environment}/files/`;
+    const items  = await storage.list(prefix);
+    const files  = items
+      .map(item => {
+        // key format: <environment>/files/<id>/<filename>
+        const rest  = item.key.slice(prefix.length);
+        const slash = rest.indexOf('/');
+        if (slash === -1) return null;
+        const id   = rest.slice(0, slash);
+        const name = rest.slice(slash + 1);
+        if (!id || !name) return null;
+        return { id, name, size: item.size, lastModified: item.lastModified,
+                 url: `/file/${id}/${encodeURIComponent(name)}` };
+      })
+      .filter(Boolean);
+    res.json(files);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/files — buffer upload, store via storage backend
 router.post('/', (req, res, next) => {
   const bb = busboy({ headers: req.headers, limits: { fileSize: config.upload.maxBytes } });

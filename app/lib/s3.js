@@ -72,7 +72,11 @@ async function list(prefix) {
     Bucket: config.aws.bucket,
     Prefix: prefix,
   }));
-  return res.Contents || [];
+  return (res.Contents || []).map(obj => ({
+    key:          obj.Key,
+    size:         obj.Size,
+    lastModified: obj.LastModified?.toISOString(),
+  }));
 }
 
 module.exports = { isConfigured, put, get, remove, list };

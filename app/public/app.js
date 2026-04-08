@@ -85,8 +85,8 @@ function storageWarning() {
   if (infoData && !infoData.storage.configured) {
     return `<div class="storage-warning">
       <strong>S3 not configured</strong>
-      Set <code>AWS_S3_BUCKET</code>, <code>AWS_ACCESS_KEY_ID</code>, and <code>AWS_SECRET_ACCESS_KEY</code>
-      to enable file and note persistence. On Control Plane these are injected via secrets — never in the image.
+      Set <code>AWS_S3_BUCKET</code> and <code>AWS_REGION</code> to enable persistence.
+      On Control Plane, AWS credentials are injected automatically via the workload identity — no keys needed.
     </div>`;
   }
   return '';
@@ -108,12 +108,14 @@ function homeView() {
       ${storageWarning()}
 
       <div class="tabs" style="margin-bottom:28px">
-        <button class="tab-btn active" id="tab-note" onclick="switchTab('note')">Note</button>
-        <button class="tab-btn"        id="tab-file" onclick="switchTab('file')">File</button>
+        <button class="tab-btn active" id="tab-note"   onclick="switchTab('note')">Note</button>
+        <button class="tab-btn"        id="tab-file"   onclick="switchTab('file')">File</button>
+        <button class="tab-btn"        id="tab-browse" onclick="switchTab('browse')">Browse</button>
       </div>
 
       <div id="panel-note">${noteForm()}</div>
-      <div id="panel-file" style="display:none">${fileForm()}</div>
+      <div id="panel-file"   style="display:none">${fileForm()}</div>
+      <div id="panel-browse" style="display:none"><div id="browse-list"><p class="text-muted">Loading…</p></div></div>
 
       ${renderInfoBar()}
     </div>`;
@@ -154,10 +156,11 @@ function fileForm() {
 }
 
 window.switchTab = function(tab) {
-  $('tab-note').classList.toggle('active', tab === 'note');
-  $('tab-file').classList.toggle('active', tab === 'file');
-  $('panel-note').style.display = tab === 'note' ? '' : 'none';
-  $('panel-file').style.display = tab === 'file' ? '' : 'none';
+  ['note', 'file', 'browse'].forEach(t => {
+    $('tab-' + t).classList.toggle('active', t === tab);
+    $('panel-' + t).style.display = t === tab ? '' : 'none';
+  });
+  if (tab === 'browse') loadBrowse();
 };
 
 // ── Note submission ───────────────────────────────────────────────────────────
@@ -259,6 +262,57 @@ window.deleteItem = async function(type, id) {
     }
     toast('Deleted');
     router();
+  } catch (e) {
+    toast('Error: ' + e.message, 4000);
+  }
+};
+
+// ── Browse view ───────────────────────────────────────────────────────────────
+
+async function loadBrowse() {
+  const el = $('browse-list');
+  if (!el) return;
+  el.innerHTML = '<p class="text-muted">Loading…</p>';
+  try {
+    const files = await api('GET', '/api/files');
+    if (files.length === 0) {
+      el.innerHTML = '<p class="text-muted">No files uploaded yet.</p>';
+      return;
+    }
+    el.innerHTML = `
+      <table class="browse-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Uploaded</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${files.map(f => `
+            <tr>
+              <td><a href="${f.url}" class="file-link">${escapeHtml(f.name)}</a></td>
+              <td class="text-subtle">${formatBytes(f.size)}</td>
+              <td class="text-subtle">${f.lastModified ? formatDate(f.lastModified) : '—'}</td>
+              <td>
+                <button class="btn-ghost btn-sm" onclick="copyText(window.location.origin+'${f.url}')">Copy link</button>
+                <button class="btn-danger btn-sm" onclick="deleteBrowseFile('${f.id}','${encodeURIComponent(f.name)}')">Delete</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    el.innerHTML = `<p class="text-muted">Failed to load files: ${e.message}</p>`;
+  }
+}
+
+window.deleteBrowseFile = async function(id, filename) {
+  if (!confirm('Delete this file?')) return;
+  try {
+    await api('DELETE', `/api/files/${id}/${filename}`);
+    toast('Deleted');
+    loadBrowse();
   } catch (e) {
     toast('Error: ' + e.message, 4000);
   }

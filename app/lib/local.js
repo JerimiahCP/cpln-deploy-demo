@@ -64,16 +64,31 @@ async function remove(key) {
 }
 
 async function list(prefix) {
-  const dir = fullPath(prefix);
-  try {
-    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-    return entries
-      .filter(e => e.isFile() && !e.name.endsWith('.meta.json'))
-      .map(e => ({ key: path.join(prefix, e.name) }));
-  } catch (err) {
-    if (err.code === 'ENOENT') return [];
-    throw err;
+  const results = [];
+
+  async function walk(dir, keyPrefix) {
+    let entries;
+    try {
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch (err) {
+      if (err.code === 'ENOENT') return;
+      throw err;
+    }
+    for (const entry of entries) {
+      if (entry.name.endsWith('.meta.json')) continue;
+      const entryPath = path.join(dir, entry.name);
+      const entryKey  = keyPrefix + entry.name;
+      if (entry.isDirectory()) {
+        await walk(entryPath, entryKey + '/');
+      } else {
+        const stat = await fs.promises.stat(entryPath);
+        results.push({ key: entryKey, size: stat.size, lastModified: stat.mtime.toISOString() });
+      }
+    }
   }
+
+  await walk(fullPath(prefix), prefix);
+  return results;
 }
 
 module.exports = { isConfigured, put, get, remove, list };
