@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Install cpln CLI
         run: npm install -g @controlplane/cli
@@ -24,10 +24,10 @@ jobs:
         run: cpln image docker-login --org "${{ vars.CPLN_ORG }}"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3.10.0
 
       - name: Build and push image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6.16.0
         with:
           context: .
           push: true

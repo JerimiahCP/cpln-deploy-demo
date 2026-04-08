@@ -3,3 +3,4 @@ cpln-rendered/
 data/
 .env
 *.local
+.claude/
