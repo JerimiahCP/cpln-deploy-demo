@@ -1,0 +1,25 @@
+# deploy.manifest.yml
+# Single source of truth for the application stack.
+# Add a new workload here — provision, deploy, and teardown all read from this file.
+# No workflow changes required.
+
+gvc_prefix: stash   # GVCs are named <gvc_prefix>-<environment>
+
+workloads:
+  # ── Primary service (lives in this repo) ─────────────────────────────────────
+  - name: stash
+    image: stash                              # image name in the CPLN registry
+    repo: JerimiahCP/cpln-deploy-demo         # GitHub repo (already checked out)
+    primary: true                             # marks the main repo; no extra clone needed
+    identity: stash-identity                  # CPLN identity resource name
+    cpln_identity: cpln/identity.yaml         # path to identity template (relative to repo root)
+    cpln_workload: cpln/workload.yaml         # path to workload template (relative to repo root)
+
+  # ── Additional services (each cloned during multi-workload operations) ────────
+  - name: analyzer
+    image: stash-analyzer
+    repo: JerimiahCP/cpln-deploy-demo-analyzer
+    checkout_path: analyzer                   # cloned to this directory during provision/deploy
+    identity: analyzer-identity
+    cpln_identity: cpln/identity.yaml         # relative to checkout_path
+    cpln_workload: cpln/workload.yaml         # relative to checkout_path
