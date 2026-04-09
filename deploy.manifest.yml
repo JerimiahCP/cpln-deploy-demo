@@ -4,7 +4,7 @@
 # No workflow changes required.
 
 gvc_prefix: stash           # GVCs are named <gvc_prefix>-<environment>
-default_environment: prod   # used by deploy workflow on push to main
+default_environment: dev   # used by deploy workflow on push to main
 environments:               # valid targets for deploy and teardown
   - dev
   - staging

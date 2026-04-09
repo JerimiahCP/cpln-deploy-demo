@@ -151,7 +151,7 @@ jobs:
           echo "Waiting for ${PRIMARY} to become ready..."
           for i in $(seq 1 24); do
             READY=$(cpln workload get "$PRIMARY" --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" -o json \
-              | jq -r '.status.readyReplicas // 0')
+              | jq -r 'if type == "array" then .[0] else . end | .status.readyReplicas // 0')
             if [ "$READY" -ge 1 ]; then
               echo "${PRIMARY} ready ($READY replica)"
               break
@@ -167,7 +167,7 @@ jobs:
           PRIMARY=$(echo "$MANIFEST" | jq -r '.workloads[] | select(.primary == true) | .name')
 
           ENDPOINT=$(cpln workload get "$PRIMARY" --gvc "$GVC_NAME" --org "${{ vars.CPLN_ORG }}" -o json \
-            | jq -r '.status.endpoint // "pending"')
+            | jq -r 'if type == "array" then .[0] else . end | .status.endpoint // "pending"')
           echo ""
           echo "  version:     ${{ github.sha }}"
           echo "  environment: $TARGET_ENV"
