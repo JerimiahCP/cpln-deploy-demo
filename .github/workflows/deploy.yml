@@ -6,13 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Target environment"
-        required: true
-        default: staging
-        type: choice
-        options:
-          - staging
-          - prod
+        description: "Target environment (valid values are in deploy.manifest.yml)"
+        required: false
+        type: string
 
 jobs:
   deploy:
@@ -25,9 +21,22 @@ jobs:
 
       - name: Resolve target environment
         run: |
-          ENV="${{ github.event.inputs.environment || 'staging' }}"
           MANIFEST=$(python3 -c "import yaml,json; print(json.dumps(yaml.safe_load(open('deploy.manifest.yml'))))")
           GVC_PREFIX=$(echo "$MANIFEST" | jq -r '.gvc_prefix')
+          DEFAULT_ENV=$(echo "$MANIFEST" | jq -r '.default_environment')
+
+          # Use dispatch input if provided, otherwise fall back to manifest default
+          INPUT="${{ github.event.inputs.environment }}"
+          ENV="${INPUT:-$DEFAULT_ENV}"
+
+          # Validate against the manifest's environments list
+          VALID=$(echo "$MANIFEST" | jq -r --arg e "$ENV" '.environments | map(. == $e) | any')
+          if [ "$VALID" != "true" ]; then
+            VALID_LIST=$(echo "$MANIFEST" | jq -r '.environments | join(", ")')
+            echo "ERROR: '${ENV}' is not a valid environment. Valid options: ${VALID_LIST}"
+            exit 1
+          fi
+
           echo "TARGET_ENV=${ENV}"               >> "$GITHUB_ENV"
           echo "GVC_NAME=${GVC_PREFIX}-${ENV}"   >> "$GITHUB_ENV"
 

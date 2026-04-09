@@ -3,7 +3,12 @@
 # Add a new workload here — provision, deploy, and teardown all read from this file.
 # No workflow changes required.
 
-gvc_prefix: stash   # GVCs are named <gvc_prefix>-<environment>
+gvc_prefix: stash           # GVCs are named <gvc_prefix>-<environment>
+default_environment: prod   # used by deploy workflow on push to main
+environments:               # valid targets for deploy and teardown
+  - dev
+  - staging
+  - prod
 
 workloads:
   # ── Primary service (lives in this repo) ─────────────────────────────────────
